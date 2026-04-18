@@ -1,6 +1,6 @@
 {
   "name": "backstage-field-api-select",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Backstage Scaffolder field extension for dynamic API-driven dropdowns — supports array query parameters, autocomplete and multiselect.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
