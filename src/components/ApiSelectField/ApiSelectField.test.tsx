@@ -18,7 +18,12 @@ const originalError = console.error.bind(console);
 
 beforeAll(() => {
   jest.spyOn(console, 'error').mockImplementation((msg: unknown, ...args: unknown[]) => {
-    if (typeof msg === 'string' && msg.includes('not wrapped in act')) return;
+    if (typeof msg !== 'string') { originalError(msg, ...args); return; }
+    // Suppress known MUI v5/v9 cross-version prop warnings (InputLabelProps, componentsProps
+    // are MUI v5 APIs that React DOM does not recognise in the MUI v9 test environment).
+    // React uses printf-style format strings so the prop name is in args, not msg.
+    if (msg.includes('not wrapped in act')) return;
+    if (msg.includes('does not recognize the')) return;
     originalError(msg, ...args);
   });
 });
@@ -52,6 +57,7 @@ type FieldProps = {
   path?: string;
   multiple?: boolean;
   minItems?: number;
+  maxItems?: number;
   arrayParams?: Record<string, string[]>;
   params?: Record<string, string>;
   arraySelector?: string;
@@ -68,6 +74,7 @@ function makeProps(overrides: FieldProps = {}) {
     path = 'test-api/items',
     multiple,
     minItems,
+    maxItems,
     arrayParams,
     params,
     arraySelector,
@@ -88,6 +95,7 @@ function makeProps(overrides: FieldProps = {}) {
         path,
         ...(multiple !== undefined && { multiple }),
         ...(minItems !== undefined && { minItems }),
+        ...(maxItems !== undefined && { maxItems }),
         ...(arrayParams && { arrayParams }),
         ...(params && { params }),
         ...(arraySelector && { arraySelector }),
@@ -164,6 +172,16 @@ describe('ApiSelectFieldOptionsSchema', () => {
 
   it('rejects minItems less than 1', () => {
     const result = ApiSelectFieldOptionsSchema.safeParse({ path: 'api/items', minItems: 0 });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts maxItems when provided', () => {
+    const result = ApiSelectFieldOptionsSchema.safeParse({ path: 'api/items', maxItems: 3 });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects maxItems less than 1', () => {
+    const result = ApiSelectFieldOptionsSchema.safeParse({ path: 'api/items', maxItems: 0 });
     expect(result.success).toBe(false);
   });
 });
@@ -358,6 +376,41 @@ describe('ApiSelectField — multiselect', () => {
     await waitFor(() => expect(screen.queryByRole('progressbar')).not.toBeInTheDocument());
 
     expect(screen.getByText(/please select at least 2 options/i)).toBeInTheDocument();
+  });
+
+  it('shows a maxItems error when too many options are selected', async () => {
+    mockSuccess([
+      { value: 'a', label: 'A' },
+      { value: 'b', label: 'B' },
+      { value: 'c', label: 'C' },
+    ]);
+
+    render(
+      <ApiSelectField
+        {...makeProps({ multiple: true, maxItems: 2, formData: ['a', 'b', 'c'] })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByRole('progressbar')).not.toBeInTheDocument());
+
+    expect(screen.getByText(/please select at most 2 options/i)).toBeInTheDocument();
+  });
+
+  it('does not show a maxItems error when selection is within the limit', async () => {
+    mockSuccess([
+      { value: 'a', label: 'A' },
+      { value: 'b', label: 'B' },
+    ]);
+
+    render(
+      <ApiSelectField
+        {...makeProps({ multiple: true, maxItems: 3, formData: ['a', 'b'] })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByRole('progressbar')).not.toBeInTheDocument());
+
+    expect(screen.queryByText(/please select at most/i)).not.toBeInTheDocument();
   });
 
   it('does not show a minItems error when enough options are selected', async () => {

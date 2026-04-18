@@ -62,6 +62,12 @@ export const ApiSelectFieldOptionsSchema = z.object({
    */
   minItems: z.number().int().min(1).optional(),
 
+  /**
+   * Maximum number of options the user can select.
+   * Only meaningful when multiple is true.
+   */
+  maxItems: z.number().int().min(1).optional(),
+
   /** Placeholder text shown inside the input before the user types. */
   placeholder: z.string().optional(),
 });

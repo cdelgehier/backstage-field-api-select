@@ -67,6 +67,7 @@ export function ApiSelectField({
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allFormData = (formContext as any)?.formData ?? {};
   const rawOpts = parseOptions(uiSchema?.['ui:options'] ?? {});
   const opts = {
@@ -168,17 +169,22 @@ export function ApiSelectField({
     };
   }, [fetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Validate minItems for multiselect.
+  // Validate minItems/maxItems for multiselect.
   const selected = Array.isArray(formData) ? formData : [];
   const minItemsError =
     opts.multiple && opts.minItems !== undefined && selected.length < opts.minItems
       ? `Please select at least ${opts.minItems} option${opts.minItems > 1 ? 's' : ''}.`
       : null;
+  const maxItemsError =
+    opts.multiple && opts.maxItems !== undefined && selected.length > opts.maxItems
+      ? `Please select at most ${opts.maxItems} option${opts.maxItems > 1 ? 's' : ''}.`
+      : null;
 
   const hasError = (rawErrors?.length ?? 0) > 0;
-  const helperText = fetchError ?? minItemsError ?? rawErrors?.[0];
+  const helperText = fetchError ?? minItemsError ?? maxItemsError ?? rawErrors?.[0];
 
   // componentsProps (MUI v5) vs slotProps (MUI v6+) — cast to any for version compat.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const paperBorder: any = {
     componentsProps: { paper: { sx: { border: '1px solid', borderColor: 'divider' } } },
   };
@@ -198,11 +204,17 @@ export function ApiSelectField({
             : null
       }
       loading={loading}
+      getOptionDisabled={option =>
+        opts.multiple && opts.maxItems !== undefined
+          ? selected.length >= opts.maxItems && !selected.includes(option as string)
+          : false
+      }
       onChange={(_, newValue) => onChange(newValue as string | string[])}
       renderInput={params => {
         // MUI v5: renderInput params carries InputProps (no slotProps).
         // MUI v6+: renderInput params carries slotProps.input (InputProps removed from types).
         // Cast to any to read whichever is present without a compile-time error.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const p = params as any;
         const inputSlot = p.slotProps?.input ?? p.InputProps ?? {};
         const spinner = loading ? <CircularProgress color="inherit" size={18} /> : null;
@@ -214,6 +226,7 @@ export function ApiSelectField({
         // Pass the merged slot back using the same API that was provided.
         const slotOverride = p.slotProps
           ? { slotProps: { ...p.slotProps, input: inputWithSpinner } }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           : ({ InputProps: inputWithSpinner } as any);
 
         return (
@@ -226,6 +239,7 @@ export function ApiSelectField({
             helperText={helperText}
             // Float the label when a placeholder is set to prevent label/placeholder overlap.
             InputLabelProps={{
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               ...(params as any).InputLabelProps,
               shrink: !!(opts.placeholder || (p.slotProps?.input ?? p.InputProps)?.startAdornment || formData),
             }}
