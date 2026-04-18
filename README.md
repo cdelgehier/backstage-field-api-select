@@ -220,7 +220,7 @@ steps:
 ## Installation
 
 ```bash
-npm install backstage-field-api-select
+npm install @cdelgehier/backstage-field-api-select
 ```
 
 ---
@@ -232,7 +232,7 @@ npm install backstage-field-api-select
 In `packages/app/src/App.tsx`, add `ApiSelectFieldExtension` inside `ScaffolderFieldExtensions`:
 
 ```tsx
-import { ApiSelectFieldExtension } from 'backstage-field-api-select';
+import { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select';
 
 // Inside your FlatRoutes:
 <Route path="/create" element={<ScaffolderPage />}>

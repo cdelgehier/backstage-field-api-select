@@ -22,7 +22,7 @@ RUN arch=$(uname -m); \
 
 # Register ApiSelectFieldExtension in App.tsx
 RUN sed -i \
-  "s|import { ScaffolderPage|import { ScaffolderFieldExtensions } from '@backstage/plugin-scaffolder-react';\nimport { ApiSelectFieldExtension } from 'backstage-field-api-select';\nimport { ScaffolderPage|" \
+  "s|import { ScaffolderPage|import { ScaffolderFieldExtensions } from '@backstage/plugin-scaffolder-react';\nimport { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select';\nimport { ScaffolderPage|" \
   packages/app/src/App.tsx
 
 RUN sed -i \
@@ -36,13 +36,13 @@ RUN mkdir -p local-plugins/backstage-field-api-select && \
 RUN node -e " \
   const fs = require('fs'); \
   const p = JSON.parse(fs.readFileSync('packages/app/package.json')); \
-  p.dependencies['backstage-field-api-select'] = 'file:../../local-plugins'; \
+  p.dependencies['@cdelgehier/backstage-field-api-select'] = 'file:../../local-plugins'; \
   fs.writeFileSync('packages/app/package.json', JSON.stringify(p, null, 2)); \
 "
 RUN yarn install && \
-    rm -rf node_modules/backstage-field-api-select && \
-    mkdir -p node_modules/backstage-field-api-select && \
-    cp -r local-plugins/backstage-field-api-select/. node_modules/backstage-field-api-select/
+    rm -rf node_modules/@cdelgehier/backstage-field-api-select && \
+    mkdir -p node_modules/@cdelgehier/backstage-field-api-select && \
+    cp -r local-plugins/backstage-field-api-select/. node_modules/@cdelgehier/backstage-field-api-select/
 
 # Minimal proxy server — replaces the full Backstage backend for the demo.
 # The Backstage backend (yarn start-backend) crashes due to a version mismatch between

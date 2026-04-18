@@ -56,7 +56,7 @@ tasks:
     cmds:
       - task: build
       - npm pack
-      - mv backstage-field-api-select-*.tgz dev/plugin.tgz
+      - mv cdelgehier-backstage-field-api-select-*.tgz dev/plugin.tgz
       - docker build --build-arg PROXY_TARGET={{.PROXY_TARGET}} -t backstage-demo dev/
 
   backstage:start:

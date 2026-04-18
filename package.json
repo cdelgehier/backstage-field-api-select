@@ -1,5 +1,5 @@
 {
-  "name": "backstage-field-api-select",
+  "name": "@cdelgehier/backstage-field-api-select",
   "version": "0.2.0",
   "description": "Backstage Scaffolder field extension for dynamic API-driven dropdowns — supports array query parameters, autocomplete and multiselect.",
   "main": "dist/index.js",
@@ -31,7 +31,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "backstage-field-api-select": "file:backstage-field-api-select",
     "zod": "^4.3.6"
   },
   "peerDependencies": {
