@@ -1,3 +1,9 @@
+## v0.3.1 (2026-04-18)
+
+### Fix
+
+- publish scoped package as public
+
 ## v0.3.0 (2026-04-18)
 
 ### Feat
