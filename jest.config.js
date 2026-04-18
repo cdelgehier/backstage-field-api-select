@@ -7,9 +7,9 @@ module.exports = {
     '\\.(css|less|sass|scss|svg)$': '<rootDir>/src/__mocks__/fileMock.js',
   },
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+    '^.+\\.(ts|tsx)$': 'ts-jest',
   },
-  testMatch: ['**/*.test.{ts,tsx}'],
+  testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.test.{ts,tsx}',

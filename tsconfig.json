@@ -12,7 +12,8 @@
     "declarationDir": "dist",
     "outDir": "dist",
     "rootDir": "src",
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "6.0",
+    "isolatedModules": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test.tsx"]
