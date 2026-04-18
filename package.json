@@ -1,0 +1,68 @@
+{
+  "name": "backstage-field-api-select",
+  "version": "0.1.0",
+  "description": "Backstage Scaffolder field extension for dynamic API-driven dropdowns — supports array query parameters, autocomplete and multiselect.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "backstage",
+    "scaffolder",
+    "field-extension",
+    "dynamic-dropdown",
+    "api-select",
+    "multiselect",
+    "autocomplete"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cdelgehier/backstage-field-api-select.git"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --max-warnings 0",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "backstage-field-api-select": "file:backstage-field-api-select",
+    "zod": "^4.3.6"
+  },
+  "peerDependencies": {
+    "@backstage/core-plugin-api": "^1.8.0",
+    "@backstage/plugin-scaffolder": "^1.18.0",
+    "@backstage/plugin-scaffolder-react": "^1.8.0",
+    "@mui/material": "^5.0.0",
+    "react": "^17.0.0 || ^18.0.0"
+  },
+  "devDependencies": {
+    "@backstage/core-plugin-api": "^1.12.5",
+    "@backstage/plugin-scaffolder": "^1.36.2",
+    "@backstage/plugin-scaffolder-react": "^1.20.1",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.0.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
+    "eslint": "^10.2.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "ts-jest": "^29.4.9",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3"
+  }
+}

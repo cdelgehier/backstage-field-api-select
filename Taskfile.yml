@@ -1,0 +1,86 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List all available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: Install all dependencies
+    cmds:
+      - npm install
+
+  build:
+    desc: Compile the package to dist/
+    cmds:
+      - npm run build
+
+  test:
+    desc: Run all tests
+    cmds:
+      - npm test
+
+  test:watch:
+    desc: Run tests in watch mode
+    cmds:
+      - npm run test:watch
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - npm test -- --coverage
+
+  lint:
+    desc: Check code style with ESLint
+    cmds:
+      - npm run lint
+
+  type-check:
+    desc: Check TypeScript types without emitting files
+    cmds:
+      - npm run type-check
+
+  ci:
+    desc: Run the full CI pipeline (lint + type-check + test)
+    cmds:
+      - task: lint
+      - task: type-check
+      - task: test
+
+  backstage:setup:
+    desc: "Build the plugin and the Docker demo image. Optional: PROXY_TARGET=https://... (default: jsonplaceholder)"
+    vars:
+      PROXY_TARGET: '{{.PROXY_TARGET | default "https://jsonplaceholder.typicode.com"}}'
+    cmds:
+      - task: build
+      - npm pack
+      - mv backstage-field-api-select-*.tgz dev/plugin.tgz
+      - docker build --build-arg PROXY_TARGET={{.PROXY_TARGET}} -t backstage-demo dev/
+
+  backstage:start:
+    desc: Start the Backstage demo in Docker (frontend :3000 + proxy :7007 via jsonplaceholder)
+    cmds:
+      - docker run --rm -it -p 3000:3000 -p 7007:7007 backstage-demo
+
+  backstage:start:frontend:
+    desc: Start only the frontend in Docker — use alongside backstage:proxy for VPN APIs
+    cmds:
+      - docker run --rm -it -p 3000:3000 backstage-demo
+
+  backstage:proxy:
+    desc: "Run the proxy on the host — required when PROXY_TARGET is on VPN (Docker can't reach it). Optional: PROXY_TARGET=https://..."
+    vars:
+      PROXY_TARGET: '{{.PROXY_TARGET | default "https://jsonplaceholder.typicode.com"}}'
+    env:
+      PROXY_TARGET: '{{.PROXY_TARGET}}'
+    cmds:
+      - node dev/proxy.cjs
+
+  clean:
+    desc: Remove all build artifacts
+    cmds:
+      - rm -rf dist/
+      - rm -rf coverage/
+      - rm -rf node_modules/
