@@ -8,9 +8,9 @@
 
 # backstage-field-api-select
 
-A Backstage Scaffolder field extension that loads its dropdown options from an external API via the Backstage proxy.
+A Backstage Scaffolder field extension that populates a dropdown from any external API via the Backstage proxy — with autocomplete, multiselect, dynamic params, and more.
 
-Designed as a drop-in replacement for Roadie's `SelectFieldFromApi` with full support for features that Roadie's plugin does not cover.
+Designed as a drop-in replacement for Roadie's `SelectFieldFromApi`, covering features it doesn't support:
 
 | Feature | Roadie `SelectFieldFromApi` | `ApiSelectField` |
 |---|---|---|
@@ -25,7 +25,19 @@ Designed as a drop-in replacement for Roadie's `SelectFieldFromApi` with full su
 
 ---
 
-## Getting Started
+## Table of contents
+
+- [Getting started](#getting-started)
+- [Installation](#installation)
+- [Setup](#setup)
+- [Usage](#usage)
+- [All `ui:options`](#all-uioptions)
+- [Examples](#examples)
+- [Development](#development)
+
+---
+
+## Getting started
 
 Three steps to see the field running locally, from zero.
 
@@ -49,10 +61,7 @@ task backstage:start   # docker run — Backstage frontend on :3000 + proxy on :
 
 > `task backstage:setup` must be re-run whenever the plugin source changes.
 
-`task backstage:start` runs **two processes inside the same container**: the Backstage frontend on port 3000
-and a lightweight proxy on port 7007. The proxy forwards `/api/proxy/demo-api/*` to `PROXY_TARGET`
-(default: [jsonplaceholder.typicode.com](https://jsonplaceholder.typicode.com)).
-The browser fetches data from `:3000`, which calls `:7007`, which calls the upstream API.
+`task backstage:start` runs **two processes inside the same container**: the Backstage frontend on port 3000 and a lightweight proxy on port 7007. The proxy forwards `/api/proxy/demo-api/*` to `PROXY_TARGET` (default: [jsonplaceholder.typicode.com](https://jsonplaceholder.typicode.com)).
 
 To point the demo at a different API, pass `PROXY_TARGET` at build time:
 
@@ -62,8 +71,7 @@ task backstage:setup PROXY_TARGET=https://my-api.example.com
 
 #### Using a VPN-only or internal API
 
-Docker containers run in an isolated network (Lima VM on macOS) and **cannot reach VPN-protected hosts**.
-In that case, split the two processes: run the proxy on your Mac (which has VPN access) and the frontend in Docker.
+Docker containers run in an isolated network (Lima VM on macOS) and **cannot reach VPN-protected hosts**. In that case, split the two processes: run the proxy on your Mac (which has VPN access) and the frontend in Docker.
 
 ```bash
 # Terminal 1 — proxy on the host (has VPN access), port 7007
@@ -73,20 +81,29 @@ task backstage:proxy PROXY_TARGET=https://my-internal-api.example.com
 task backstage:start:frontend
 ```
 
-The browser calls `localhost:7007` (Mac host proxy) → your internal API. The frontend container never touches the VPN.
+```mermaid
+flowchart LR
+    Browser -->|":3000"| FE["Frontend (Docker)"]
+    FE -->|":7007"| Proxy["Proxy (Laptop host — VPN)"]
+    Proxy -->|"HTTPS"| API["Internal API (VPN-only)"]
+
+    style FE fill:#1e1e2e,stroke:#89b4fa,color:#cdd6f4
+    style Proxy fill:#1e1e2e,stroke:#a6e3a1,color:#cdd6f4
+    style API fill:#1e1e2e,stroke:#f38ba8,color:#cdd6f4
+```
 
 ### 3. Try the full example template
 
 Open the Template Editor at [http://localhost:3000/create/template-form](http://localhost:3000/create/template-form) and paste the block below.
-It covers every `ui:options` the field supports.
 
 > **What is `demo-api`?**
 > In the template examples, `path: demo-api/posts` maps to the proxy endpoint `/api/proxy/demo-api/posts`.
-> `demo-api` is the proxy prefix configured in the demo's `app-config.yaml` and forwarded to `PROXY_TARGET`
-> by the built-in proxy server. In a real Backstage app, replace `demo-api` with the key you define under
-> `proxy.endpoints` in your own `app-config.yaml`.
+> `demo-api` is the proxy prefix configured in the demo's `app-config.yaml`. In a real Backstage app, replace it with the key you define under `proxy.endpoints` in your own `app-config.yaml`.
 
 > The Template Editor accepts only `parameters:` + `steps:` — leave out `apiVersion / kind / metadata / spec`.
+
+<details>
+<summary>Show full demo template</summary>
 
 ```yaml
 parameters:
@@ -215,6 +232,8 @@ steps:
         dynamic_param:      ${{ parameters.dynamic_param }}
 ```
 
+</details>
+
 ---
 
 ## Installation
@@ -283,19 +302,22 @@ parameters:
           labelSelector: label
 ```
 
-### All `ui:options`
+---
+
+## All `ui:options`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `path` | `string` | **required** | API path appended to the proxy base URL. Supports `${{ parameters.xxx }}` for dynamic path segments. |
+| `path` | `string` | **required** | API path appended to the proxy base URL. Supports `${{ parameters.xxx }}` for dynamic segments. |
 | `params` | `Record<string, string>` | — | Static query parameters (`?key=value`). Values support `${{ parameters.xxx }}`. |
-| `arrayParams` | `Record<string, string[]>` | — | Array query parameters (`?key=a&key=b`). |
-| `arraySelector` | `string` | — | Dot-separated path into the response before reading options. Example: `"data.items"`. |
-| `valueSelector` | `string` | `"value"` | Key used as the option value from each item. If the API already returns `{ value: ..., label: ... }`, you can omit both selectors. |
-| `labelSelector` | `string` | `"label"` | Key used as the option label. Falls back to `valueSelector` if absent from the item. |
-| `multiple` | `boolean` | `false` | Allow the user to select more than one option. |
-| `minItems` | `number` | — | Minimum number of options that must be selected (multiselect only). |
-| `placeholder` | `string` | — | Placeholder text shown before the user types. |
+| `arrayParams` | `Record<string, string[]>` | — | Array query parameters (`?key=a&key=b`). Use when the API expects the same key repeated. |
+| `arraySelector` | `string` | — | Dot-separated path into the response to reach the array. Example: `"data.items"`. |
+| `valueSelector` | `string` | `"value"` | Key used as the option value from each item. |
+| `labelSelector` | `string` | `"label"` | Key used as the option label. Falls back to `valueSelector` if absent. |
+| `multiple` | `boolean` | `false` | Allow selecting more than one option. Requires `type: array` + `items: type: string`. |
+| `minItems` | `number` | — | Minimum number of selections required (multiselect only). |
+| `maxItems` | `number` | — | Maximum number of selections allowed (multiselect only). |
+| `placeholder` | `string` | — | Placeholder text shown before the user makes a selection. |
 
 ---
 
@@ -358,7 +380,7 @@ subnet:
 
 ### Dynamic path segment from another field
 
-Use `${{ parameters.xxx }}` directly in `path` for APIs with path parameters — useful when filtering depends on a resource ID selected in a previous field:
+Use `${{ parameters.xxx }}` directly in `path` for path-parameter APIs:
 
 ```yaml
 vpc:
@@ -409,28 +431,27 @@ pre-commit install --hook-type commit-msg
 
 ### Available tasks
 
-```
-task install                Install all dependencies
-task build                  Compile the package to dist/
-task test                   Run all tests
-task test:watch             Run tests in watch mode
-task test:coverage          Run tests with coverage report
-task lint                   Check code style with ESLint
-task type-check             Check TypeScript types
-task ci                     Run the full CI pipeline (lint + type-check + test)
-task clean                  Remove all build artifacts
-task backstage:setup        Build the plugin and Docker demo image (re-run after source changes)
-task backstage:start        Start the demo (frontend + proxy for jsonplaceholder)
-task backstage:proxy        Run the proxy on the host — use for VPN-protected APIs
-task backstage:start:frontend  Start only the frontend — pair with backstage:proxy
-```
+| Task | Description |
+|---|---|
+| `task install` | Install all dependencies |
+| `task build` | Compile the package to `dist/` |
+| `task test` | Run all tests |
+| `task test:watch` | Run tests in watch mode |
+| `task test:coverage` | Run tests with coverage report |
+| `task lint` | Check code style with ESLint |
+| `task type-check` | Check TypeScript types |
+| `task ci` | Full CI pipeline (lint + type-check + test) |
+| `task clean` | Remove all build artifacts |
+| `task backstage:setup` | Build the plugin and Docker demo image (re-run after source changes) |
+| `task backstage:start` | Start the demo (frontend + proxy for jsonplaceholder) |
+| `task backstage:proxy` | Run the proxy on the host — use for VPN-protected APIs |
+| `task backstage:start:frontend` | Start only the frontend — pair with `backstage:proxy` |
 
 ### Commit convention
 
-Commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) spec — enforced by the `commitizen` pre-commit hook on every commit and verified by the CI on every push and PR.
+Commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) spec — enforced by the `commitizen` pre-commit hook and verified by CI on every push and PR.
 
 ```bash
-# Good
 git commit -m "feat: add support for dynamic params from other fields"
 git commit -m "fix: avoid re-fetch when unrelated props change"
 git commit -m "docs: add multiselect example to README"
