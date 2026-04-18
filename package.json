@@ -18,6 +18,9 @@
     "multiselect",
     "autocomplete"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/cdelgehier/backstage-field-api-select.git"
