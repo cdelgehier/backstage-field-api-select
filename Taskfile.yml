@@ -51,18 +51,19 @@ tasks:
 
   backstage:setup:
     desc: "Build the plugin and the Docker demo image. Optional: PROXY_TARGET=https://... (default: jsonplaceholder)"
-    vars:
-      PROXY_TARGET: '{{.PROXY_TARGET | default "https://jsonplaceholder.typicode.com"}}'
     cmds:
       - task: build
       - npm pack
       - mv cdelgehier-backstage-field-api-select-*.tgz dev/plugin.tgz
-      - docker build --build-arg PROXY_TARGET={{.PROXY_TARGET}} -t backstage-demo dev/
+      - docker build -t backstage-demo dev/
 
   backstage:start:
-    desc: Start the Backstage demo in Docker (frontend :3000 + proxy :7007 via jsonplaceholder)
+    desc: "Start the Backstage demo in Docker. Optional: PROXY_TARGET=https://... PROXY_ENDPOINT=name (default: jsonplaceholder / demo-api)"
+    vars:
+      PROXY_TARGET: '{{.PROXY_TARGET | default "https://jsonplaceholder.typicode.com"}}'
+      PROXY_ENDPOINT: '{{.PROXY_ENDPOINT | default "demo-api"}}'
     cmds:
-      - docker run --rm -it -p 3000:3000 -p 7007:7007 backstage-demo
+      - docker run --rm -it -p 3000:3000 -p 7007:7007 -e PROXY_TARGET={{.PROXY_TARGET}} -e PROXY_ENDPOINT={{.PROXY_ENDPOINT}} backstage-demo
 
   backstage:start:frontend:
     desc: Start only the frontend in Docker — use alongside backstage:proxy for VPN APIs
@@ -70,13 +71,16 @@ tasks:
       - docker run --rm -it -p 3000:3000 backstage-demo
 
   backstage:proxy:
-    desc: "Run the proxy on the host — required when PROXY_TARGET is on VPN (Docker can't reach it). Optional: PROXY_TARGET=https://..."
+    desc: "Run the proxy on the host. Optional: PROXY_TARGET=https://... PROXY_ENDPOINT=name"
     vars:
       PROXY_TARGET: '{{.PROXY_TARGET | default "https://jsonplaceholder.typicode.com"}}'
+      PROXY_ENDPOINT: '{{.PROXY_ENDPOINT | default "demo-api"}}'
     env:
       PROXY_TARGET: '{{.PROXY_TARGET}}'
+      PROXY_ENDPOINT: '{{.PROXY_ENDPOINT}}'
     cmds:
       - node dev/proxy.cjs
+
 
   clean:
     desc: Remove all build artifacts
