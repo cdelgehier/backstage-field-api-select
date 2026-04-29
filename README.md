@@ -8,7 +8,10 @@
 
 # backstage-field-api-select
 
-A Backstage Scaffolder field extension that populates a dropdown from any external API via the Backstage proxy — with autocomplete, multiselect, dynamic params, and more.
+Two Backstage Scaffolder field extensions:
+
+- **`ApiSelectField`** — populates a dropdown from any external API via the Backstage proxy, with autocomplete, multiselect, dynamic path and param substitution.
+- **`CascadeSelectField`** — renders two dependent static selects in a single component, solving the rjsf rendering order limitation that affects `dependencies.oneOf`.
 
 Designed as a drop-in replacement for Roadie's `SelectFieldFromApi`, covering features it doesn't support:
 
@@ -18,10 +21,11 @@ Designed as a drop-in replacement for Roadie's `SelectFieldFromApi`, covering fe
 | Array params (`?key=a&key=b`) | ❌ | ✅ |
 | Autocomplete / typeahead | ❌ | ✅ |
 | Multiselect | ❌ | ✅ |
-| `minItems` validation | ❌ | ✅ |
+| `minItems` / `maxItems` validation | ❌ | ✅ |
 | Dynamic params from other fields | ❌ | ✅ |
 | Dynamic path segments from other fields | ❌ | ✅ |
-| No external dependency | ❌ | ✅ |
+| Dotted path references (`parameters.obj.prop`) | ❌ | ✅ |
+| Cascade static selects (ordering fix) | ❌ | ✅ (`CascadeSelectField`) |
 
 ---
 
@@ -29,9 +33,15 @@ Designed as a drop-in replacement for Roadie's `SelectFieldFromApi`, covering fe
 
 - [Installation](#installation)
 - [Setup](#setup)
-- [Usage](#usage)
-- [All `ui:options`](#all-uioptions)
-- [Examples](#examples)
+- [ApiSelectField](#apiselectfield)
+  - [Usage](#usage)
+  - [All `ui:options`](#all-uioptions)
+  - [Examples](#examples)
+- [CascadeSelectField](#cascadeselectfield)
+  - [The problem it solves](#the-problem-it-solves)
+  - [Usage](#usage-1)
+  - [All `ui:options`](#all-uioptions-1)
+  - [Referencing values in subsequent fields](#referencing-values-in-subsequent-fields)
 - [Try it locally](#try-it-locally)
 - [Development](#development)
 
@@ -47,9 +57,7 @@ npm install @cdelgehier/backstage-field-api-select
 
 ## Setup
 
-### 1. Register the field extension
-
-In `packages/app/src/App.tsx`, add `ApiSelectFieldExtension` inside `ScaffolderFieldExtensions`:
+Register both field extensions in `packages/app/src/App.tsx`:
 
 ```tsx
 import { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select';
@@ -62,9 +70,9 @@ import { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select'
 </Route>
 ```
 
-### 2. Configure the proxy
+`ApiSelectFieldExtension` registers both `ApiSelectField` and `CascadeSelectField` — a single import covers both.
 
-In your `app-config.yaml`, expose the API you want to query via the Backstage proxy:
+Configure the Backstage proxy to expose the API you want to query:
 
 ```yaml
 proxy:
@@ -74,13 +82,11 @@ proxy:
       changeOrigin: true
 ```
 
-The field will call `${backstageProxyBase}/my-api/<path>`.
-
 ---
 
-## Usage
+## ApiSelectField
 
-Use `ui:field: ApiSelectField` in any Scaffolder template:
+### Usage
 
 ```yaml
 parameters:
@@ -94,22 +100,15 @@ parameters:
           path: my-api/accounts/123456789/s3-buckets
           params:
             region_name: eu-west-1
-            include_empty: 'true'
-          arrayParams:
-            exclude_patterns:
-              - '^prod-logs-.*'
-              - '^backup-.*'
           valueSelector: value
           labelSelector: label
 ```
 
----
-
-## All `ui:options`
+### All `ui:options`
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `path` | `string` | **required** | API path appended to the proxy base URL. Supports `${{ parameters.xxx }}` for dynamic segments. |
+| `path` | `string` | **required** | API path appended to the proxy base URL. Supports `${{ parameters.xxx }}` and `${{ parameters.obj.prop }}` for dynamic segments. |
 | `params` | `Record<string, string>` | — | Static query parameters (`?key=value`). Values support `${{ parameters.xxx }}`. |
 | `arrayParams` | `Record<string, string[]>` | — | Array query parameters (`?key=a&key=b`). Use when the API expects the same key repeated. |
 | `arraySelector` | `string` | — | Dot-separated path into the response to reach the array. Example: `"data.items"`. |
@@ -120,98 +119,196 @@ parameters:
 | `maxItems` | `number` | — | Maximum number of selections allowed (multiselect only). |
 | `placeholder` | `string` | — | Placeholder text shown before the user makes a selection. |
 
----
+### Examples
 
-## Examples
-
-### Single select from a nested response
-
-The API returns `{ result: { items: [{ id: "eu-west-1", name: "EU West 1" }, ...] } }`.
+#### Single select, dynamic path segment
 
 ```yaml
+account:
+  title: AWS Account
+  type: string
+  ui:field: ApiSelectField
+  ui:options:
+    path: my-api/organizations/my-ou/accounts
+
 region:
   title: AWS Region
   type: string
   ui:field: ApiSelectField
   ui:options:
-    path: my-api/regions
-    arraySelector: result.items
-    valueSelector: id
-    labelSelector: name
+    path: my-api/accounts/${{ parameters.account }}/regions
 ```
 
-### Multiselect with a minimum selection
+When `account` is not yet selected, `region` skips the fetch (the empty path segment guard prevents calling `/accounts//regions`).
+
+#### Multiselect with min/max enforcement
 
 ```yaml
-securityGroups:
-  title: Security Groups
+subnet_ids:
+  title: Database Subnets
+  description: Select at least 2 subnets in different Availability Zones.
   type: array
+  minItems: 2
+  default: []
   items:
     type: string
   ui:field: ApiSelectField
   ui:options:
-    path: my-api/accounts/123456789/security-groups
+    path: my-api/accounts/${{ parameters.account }}/subnets
     params:
-      region_name: eu-west-1
-    arrayParams:
-      exclude_patterns:
-        - '^default$'
+      region_name: ${{ parameters.region }}
     multiple: true
-    minItems: 1
-    placeholder: Choose at least one security group…
+    minItems: 2
 ```
 
-### Dynamic param from another field
+`minItems` and `maxItems` in `ui:options` show inline validation messages. Add them at the JSON Schema level too (`minItems: 2` on the field) to have rjsf block the **Next** button.
 
-Use `${{ parameters.xxx }}` in `params` values — the field re-fetches automatically when the referenced field changes:
+#### Dynamic param from another field
 
 ```yaml
-subnet:
+subnets:
   title: Subnet
   type: string
   ui:field: ApiSelectField
   ui:options:
-    path: my-api/subnets
+    path: my-api/accounts/${{ parameters.account }}/subnets
     params:
-      region_name: '${{ parameters.region }}'
-      env: '${{ parameters.env }}'
+      region_name: ${{ parameters.region }}
     valueSelector: value
     labelSelector: label
 ```
 
-### Dynamic path segment from another field
+The field re-fetches automatically whenever `account` or `region` changes. If the previously selected value is no longer in the new options, it is cleared automatically.
 
-Use `${{ parameters.xxx }}` directly in `path` for path-parameter APIs:
+#### Dotted path reference to a `CascadeSelectField` value
 
 ```yaml
-vpc:
-  title: VPC
+images:
+  title: Base Image
   type: string
   ui:field: ApiSelectField
   ui:options:
-    path: my-api/accounts/123456789/vpcs
-    valueSelector: value
-    labelSelector: label
+    path: my-api/accounts/${{ parameters.account }}/images
+    params:
+      os: ${{ parameters.os_combo.secondary }}
+```
 
-subnets:
-  title: Subnets
-  type: array
-  items:
-    type: string
+`${{ parameters.os_combo.secondary }}` reads the `secondary` property of an `os_combo` field returned by `CascadeSelectField`. Dotted paths up to any depth are supported.
+
+#### Array query parameters
+
+```yaml
+instances:
+  title: Instance Type
+  type: string
   ui:field: ApiSelectField
   ui:options:
-    path: my-api/accounts/123456789/vpcs/${{ parameters.vpc }}/subnets
-    valueSelector: value
-    labelSelector: label
-    multiple: true
-    minItems: 1
+    path: my-api/instance-types
+    arrayParams:
+      families:
+        - t3
+        - m5
+        - r5
+```
+
+Produces `?families=t3&families=m5&families=r5` — one key repeated per value, as many APIs expect.
+
+---
+
+## CascadeSelectField
+
+### The problem it solves
+
+In rjsf (used by Backstage), fields injected via `dependencies.oneOf` **always render after all `properties` fields**, regardless of their position in the YAML. This breaks the expected visual flow when one static enum depends on another:
+
+```
+# What you write in YAML:    # What the user sees without CascadeSelectField:
+os_type                       os_type       ✅
+os_distro   ← dependency      other_field   ← wrong order
+other_field                   os_distro     ← always at the bottom
+```
+
+`CascadeSelectField` combines both selects into a single component, eliminating the need for `dependencies.oneOf` entirely and preserving declaration order.
+
+### Usage
+
+```yaml
+parameters:
+  - title: Operating System
+    required:
+      - os_combo
+    properties:
+      os_combo:
+        title: Operating System
+        type: object
+        ui:field: CascadeSelectField
+        ui:options:
+          primary:
+            label: OS Family
+            options:
+              - { value: linux,   label: Linux }
+              - { value: windows, label: Windows Server }
+          secondary:
+            label: Distribution
+            optionsByPrimary:
+              linux:
+                - { value: amzn2,  label: Amazon Linux 2 (amzn2) }
+                - { value: al2023, label: Amazon Linux 2023 (al2023) }
+                - { value: rhel,   label: Red Hat (rhel) }
+                - { value: ubuntu, label: Ubuntu }
+                - { value: oracle, label: Oracle }
+              windows:
+                - { value: windows-w2k22, label: Windows Server 2022 (w2k22) }
+                - { value: windows-w2k19, label: Windows Server 2019 (w2k19) }
+```
+
+The field returns `{ primary: "linux", secondary: "ubuntu" }` as the value for `os_combo`.
+
+### All `ui:options`
+
+| Option | Type | Required | Description |
+|---|---|---|---|
+| `primary.label` | `string` | — | Label for the first select. Falls back to the field's `title`. |
+| `primary.options` | `{ value, label }[]` | ✅ | Static list of options for the first select. |
+| `secondary.label` | `string` | — | Label for the second select. |
+| `secondary.optionsByPrimary` | `Record<string, { value, label }[]>` | ✅ | Map of primary value → secondary options. The second select is disabled until the first is chosen. |
+
+When the primary selection changes, the secondary is automatically reset if its current value is no longer valid.
+
+### Referencing values in subsequent fields
+
+Reference each part of the returned object with dotted notation in any `ApiSelectField` path or params:
+
+```yaml
+# os_combo.primary → "linux" or "windows"
+# os_combo.secondary → "ubuntu", "rhel", "windows-w2k22", …
+
+images:
+  title: Base Image
+  type: string
+  ui:field: ApiSelectField
+  ui:options:
+    path: my-api/accounts/${{ parameters.account }}/images
+    params:
+      os: ${{ parameters.os_combo.secondary }}
+```
+
+Reference in steps:
+
+```yaml
+steps:
+  - action: debug:log
+    input:
+      message: |
+        OS family    : ${{ parameters.os_combo.primary }}
+        Distribution : ${{ parameters.os_combo.secondary }}
 ```
 
 ---
 
 ## Try it locally
 
-Want to see the field in action before integrating? The demo runs in Docker — no local Node version constraint.
+Want to see the fields in action before integrating? The demo runs in Docker — no local Node version constraint.
 
 ```bash
 git clone https://github.com/cdelgehier/backstage-field-api-select.git
@@ -263,7 +360,7 @@ Open the Template Editor at [http://localhost:3000/create/template-form](http://
 > The Template Editor accepts only `parameters:` + `steps:` — leave out `apiVersion / kind / metadata / spec`.
 
 <details>
-<summary>Show full demo template</summary>
+<summary>Show full ApiSelectField demo template</summary>
 
 ```yaml
 parameters:
@@ -277,17 +374,6 @@ parameters:
         ui:field: ApiSelectField
         ui:options:
           path: demo-api/posts
-          valueSelector: id
-          labelSelector: title
-
-      # --- Single select, nested response --------------------------------
-      nested_response:
-        title: Single select (nested response)
-        type: string
-        ui:field: ApiSelectField
-        ui:options:
-          path: demo-api/posts
-          arraySelector: ''
           valueSelector: id
           labelSelector: title
 
@@ -347,6 +433,8 @@ parameters:
       multiselect_min:
         title: Multiselect (min 2, max 4)
         type: array
+        minItems: 2
+        default: []
         items:
           type: string
         ui:field: ApiSelectField
@@ -378,12 +466,54 @@ steps:
     input:
       message: |
         single_select:      ${{ parameters.single_select }}
-        nested_response:    ${{ parameters.nested_response }}
         with_params:        ${{ parameters.with_params }}
         with_array_params:  ${{ parameters.with_array_params }}
         multiselect:        ${{ parameters.multiselect }}
         multiselect_min:    ${{ parameters.multiselect_min }}
         dynamic_param:      ${{ parameters.dynamic_param }}
+```
+
+</details>
+
+<details>
+<summary>Show full CascadeSelectField demo template</summary>
+
+```yaml
+parameters:
+  - title: Operating System
+    required:
+      - os_combo
+    properties:
+      os_combo:
+        title: Operating System
+        type: object
+        ui:field: CascadeSelectField
+        ui:options:
+          primary:
+            label: OS Family
+            options:
+              - { value: linux,   label: Linux }
+              - { value: windows, label: Windows Server }
+          secondary:
+            label: Distribution
+            optionsByPrimary:
+              linux:
+                - { value: amzn2,  label: "Amazon Linux 2 (amzn2)" }
+                - { value: al2023, label: "Amazon Linux 2023 (al2023)" }
+                - { value: rhel,   label: "Red Hat (rhel)" }
+                - { value: ubuntu, label: Ubuntu }
+              windows:
+                - { value: windows-w2k22, label: "Windows Server 2022 (w2k22)" }
+                - { value: windows-w2k19, label: "Windows Server 2019 (w2k19)" }
+
+steps:
+  - id: log
+    name: Log selections
+    action: debug:log
+    input:
+      message: |
+        os_family    : ${{ parameters.os_combo.primary }}
+        distribution : ${{ parameters.os_combo.secondary }}
 ```
 
 </details>

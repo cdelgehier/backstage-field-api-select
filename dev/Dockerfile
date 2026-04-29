@@ -1,61 +1,87 @@
 FROM node:20-bookworm
 
 ENV HOST=0.0.0.0
-ENV YARN_IGNORE_ENGINES=true
 
 WORKDIR /workspace
 
-# Create Backstage app (old frontend system, compatible with ScaffolderFieldExtensions)
-RUN echo "backstage" | npx --yes @backstage/create-app@0.5.17
+# Root package.json (npm workspaces — no Yarn 4, no isolated-vm)
+RUN node -e "require('fs').writeFileSync('package.json', JSON.stringify({ \
+  name: 'root', private: true, workspaces: ['packages/app'] \
+}, null, 2))"
 
-WORKDIR /workspace/backstage
+# App package.json — frontend only, no backend
+RUN mkdir -p packages/app/src packages/app/public
+RUN node -e "require('fs').writeFileSync('packages/app/package.json', JSON.stringify({ \
+  name: 'app', version: '0.0.0', private: true, \
+  backstage: { role: 'frontend' }, \
+  scripts: { start: 'backstage-cli package start' }, \
+  dependencies: { \
+    '@backstage/cli': '^0.36.1', \
+    '@backstage/core-components': '^0.18.9', \
+    '@backstage/core-plugin-api': '^1.12.5', \
+    '@backstage/frontend-defaults': '^0.5.1', \
+    '@backstage/frontend-plugin-api': '^0.16.0', \
+    '@backstage/plugin-catalog': '^2.0.4', \
+    '@backstage/plugin-scaffolder': '^1.36.2', \
+    '@backstage/plugin-scaffolder-react': '^1.20.1', \
+    'react': '^18.0.2', \
+    'react-dom': '^18.0.2', \
+    'react-router': '^6.30.2', \
+    'react-router-dom': '^6.30.2' \
+  } \
+}, null, 2))"
 
-RUN yarn install --force
+RUN npm install --legacy-peer-deps
 
-# Fix missing platform-specific @swc/core native binding
-RUN arch=$(uname -m); \
-    if [ "$arch" = "aarch64" ]; then \
-      yarn add @swc/core-linux-arm64-gnu -W; \
-    elif [ "$arch" = "x86_64" ]; then \
-      yarn add @swc/core-linux-x64-gnu -W; \
-    fi
+# App.tsx — new frontend system: scaffolderPlugin from /alpha (FrontendPlugin) + ApiSelectFieldExtension
+RUN node -e " \
+  const fs = require('fs'); \
+  fs.writeFileSync('packages/app/src/App.tsx', [ \
+    \"import { createApp } from '@backstage/frontend-defaults';\", \
+    \"import catalogPlugin from '@backstage/plugin-catalog/alpha';\", \
+    \"import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';\", \
+    \"import { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select';\", \
+    \"\", \
+    \"export default createApp({\", \
+    \"  features: [catalogPlugin, scaffolderPlugin, ApiSelectFieldExtension],\", \
+    \"});\", \
+    '' \
+  ].join('\\n')); \
+"
 
-# Register ApiSelectFieldExtension in App.tsx
-RUN sed -i \
-  "s|import { ScaffolderPage|import { ScaffolderFieldExtensions } from '@backstage/plugin-scaffolder-react';\nimport { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select';\nimport { ScaffolderPage|" \
-  packages/app/src/App.tsx
+# index.tsx — new frontend system entry point
+RUN node -e " \
+  const fs = require('fs'); \
+  fs.writeFileSync('packages/app/src/index.tsx', [ \
+    \"import '@backstage/cli/asset-types';\", \
+    \"import ReactDOM from 'react-dom/client';\", \
+    \"import App from './App';\", \
+    \"\", \
+    \"ReactDOM.createRoot(document.getElementById('root')!).render(App.createRoot());\", \
+    '' \
+  ].join('\\n')); \
+"
 
-RUN sed -i \
-  "s|element={<ScaffolderPage />} />|element={<ScaffolderPage />}>\n          <ScaffolderFieldExtensions>\n            <ApiSelectFieldExtension />\n          </ScaffolderFieldExtensions>\n        </Route>|" \
-  packages/app/src/App.tsx
+# HTML entry point required by backstage-cli
+RUN printf '<!DOCTYPE html>\n<html lang="en">\n  <head>\n    <meta charset="utf-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <title>ApiSelectField Demo</title>\n  </head>\n  <body>\n    <div id="root"></div>\n  </body>\n</html>\n' \
+  > packages/app/public/index.html
 
-# Copy and install plugin
+# Backstage config
+RUN printf 'app:\n  title: ApiSelectField Demo\n  baseUrl: http://localhost:3000\nbackend:\n  baseUrl: http://localhost:7007\n  listen:\n    port: 7007\n' \
+  > app-config.yaml
+
+# Install plugin from local tgz
 COPY plugin.tgz /tmp/plugin.tgz
 RUN mkdir -p local-plugins/backstage-field-api-select && \
     tar -xzf /tmp/plugin.tgz -C local-plugins/backstage-field-api-select --strip-components=1
-RUN node -e " \
-  const fs = require('fs'); \
-  const p = JSON.parse(fs.readFileSync('packages/app/package.json')); \
-  p.dependencies['@cdelgehier/backstage-field-api-select'] = 'file:../../local-plugins'; \
-  fs.writeFileSync('packages/app/package.json', JSON.stringify(p, null, 2)); \
-"
-RUN yarn install && \
-    rm -rf node_modules/@cdelgehier/backstage-field-api-select && \
-    mkdir -p node_modules/@cdelgehier/backstage-field-api-select && \
-    cp -r local-plugins/backstage-field-api-select/. node_modules/@cdelgehier/backstage-field-api-select/
-
-# Minimal proxy server — replaces the full Backstage backend for the demo.
-# The Backstage backend (yarn start-backend) crashes due to a version mismatch between
-# @backstage/backend-defaults and @backstage/backend-app-api that create-app@0.5.17 ships with.
-# The demo only needs a proxy on :7007 for ApiSelectField to reach the external API.
-ARG PROXY_TARGET=https://jsonplaceholder.typicode.com
-ENV PROXY_TARGET=${PROXY_TARGET}
-COPY proxy.cjs /workspace/backstage/proxy.cjs
+RUN mkdir -p node_modules/@cdelgehier && \
+    cp -r local-plugins/backstage-field-api-select node_modules/@cdelgehier/backstage-field-api-select
 
 # Override the listening host — Backstage defaults to 127.0.0.1 which blocks Docker port forwarding.
-# app-config.local.yaml is auto-merged on top of app-config.yaml by Backstage.
 RUN printf 'app:\n  listen:\n    host: "0.0.0.0"\n' > app-config.local.yaml
+
+COPY proxy.cjs proxy.cjs
 
 EXPOSE 3000 7007
 
-CMD ["sh", "-c", "node proxy.cjs & yarn workspace app start"]
+CMD ["sh", "-c", "node proxy.cjs & npm start --workspace packages/app"]
