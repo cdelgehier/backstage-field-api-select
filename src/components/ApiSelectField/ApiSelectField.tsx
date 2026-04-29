@@ -84,10 +84,25 @@ export function ApiSelectField({
     arrayParams: opts.arrayParams,
   });
 
+  // Flush null items injected by rjsf (minItems pre-population) back to the form.
+  useEffect(() => {
+    if (opts.multiple && Array.isArray(formData) && (formData as unknown[]).some(v => v == null)) {
+      onChange((formData as unknown[]).filter((v): v is string => v != null));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadOptions() {
+      // Skip fetch when a dependency parameter hasn't been selected yet.
+      // substitute() returns '' for unresolved tokens, producing paths like /accounts//regions.
+      if (opts.path.split('/').some(segment => segment === '')) {
+        setOptions([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setFetchError(null);
 
@@ -170,7 +185,8 @@ export function ApiSelectField({
   }, [fetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Validate minItems/maxItems for multiselect.
-  const selected = Array.isArray(formData) ? formData : [];
+  // rjsf pre-fills array fields with null items when minItems is set — strip them.
+  const selected = Array.isArray(formData) ? (formData as unknown[]).filter((v): v is string => v != null) : [];
   const minItemsError =
     opts.multiple && opts.minItems !== undefined && selected.length < opts.minItems
       ? `Please select at least ${opts.minItems} option${opts.minItems > 1 ? 's' : ''}.`
@@ -234,7 +250,11 @@ export function ApiSelectField({
             {...params}
             label={schema.title}
             placeholder={opts.placeholder}
-            required={required}
+            required={opts.multiple ? false : required}
+            inputProps={{
+              ...p.inputProps,
+              required: opts.multiple ? false : required,
+            }}
             error={hasError || !!minItemsError}
             helperText={helperText}
             // Float the label when a placeholder is set to prevent label/placeholder overlap.
