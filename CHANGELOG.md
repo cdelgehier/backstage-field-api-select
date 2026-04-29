@@ -1,3 +1,13 @@
+## v0.4.0 (2026-04-29)
+
+### Feat
+
+- **field**: add CascadeSelectField, extend substitute() for dotted paths, clear stale values on refetch
+
+### Fix
+
+- **field**: fix multiselect native required, empty-path guard, and null pre-population
+
 ## v0.3.1 (2026-04-18)
 
 ### Fix
