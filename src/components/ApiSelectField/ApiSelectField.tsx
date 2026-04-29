@@ -31,10 +31,16 @@ type Option = { value: string; label: string };
  *     labelSelector: name
  * ```
  */
-/** Replace `${{ parameters.fieldName }}` tokens with values from the live form data. */
+/**
+ * Replace `${{ parameters.field }}` or `${{ parameters.obj.prop }}` tokens
+ * with values from the live form data. Supports dotted paths for object fields
+ * such as those returned by CascadeSelectField.
+ */
 function substitute(value: string, allFormData: Record<string, unknown>): string {
-  return value.replace(/\$\{\{\s*parameters\.(\w+)\s*\}\}/g, (_, name) => {
-    const val = allFormData[name];
+  return value.replace(/\$\{\{\s*parameters\.([\w.]+)\s*\}\}/g, (_, path) => {
+    const val = path.split('.').reduce((obj: unknown, key: string) => {
+      return obj != null ? (obj as Record<string, unknown>)[key] : undefined;
+    }, allFormData as unknown);
     return val != null ? String(val) : '';
   });
 }
@@ -155,15 +161,25 @@ export function ApiSelectField({
         }
 
         if (!cancelled) {
-          setOptions(
-            data.map(item => {
-              const record = item as Record<string, unknown>;
-              return {
-                value: String(record[opts.valueSelector] ?? item),
-                label: String(record[opts.labelSelector] ?? record[opts.valueSelector] ?? item),
-              };
-            }),
-          );
+          const newOptions = data.map(item => {
+            const record = item as Record<string, unknown>;
+            return {
+              value: String(record[opts.valueSelector] ?? item),
+              label: String(record[opts.labelSelector] ?? record[opts.valueSelector] ?? item),
+            };
+          });
+          setOptions(newOptions);
+
+          // Clear stale value(s) that are no longer in the new options.
+          if (opts.multiple) {
+            const current = Array.isArray(formData)
+              ? (formData as unknown[]).filter((v): v is string => typeof v === 'string')
+              : [];
+            const valid = current.filter(v => newOptions.some(o => o.value === v));
+            if (valid.length !== current.length) onChange(valid);
+          } else if (typeof formData === 'string' && formData && !newOptions.some(o => o.value === formData)) {
+            onChange(undefined as unknown as string);
+          }
         }
       } catch (err) {
         if (!cancelled) {

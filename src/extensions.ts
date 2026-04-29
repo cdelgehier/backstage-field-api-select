@@ -1,6 +1,7 @@
 import { FormFieldBlueprint, createFormField } from '@backstage/plugin-scaffolder-react/alpha';
 import { createFrontendModule } from '@backstage/frontend-plugin-api';
 import { ApiSelectField } from './components/ApiSelectField';
+import { CascadeSelectField } from './components/CascadeSelectField';
 
 /**
  * Registers ApiSelectField as a Scaffolder field extension.
@@ -35,7 +36,17 @@ const ApiSelectFieldBlueprint = FormFieldBlueprint.make({
   },
 });
 
+const CascadeSelectFieldBlueprint = FormFieldBlueprint.make({
+  name: 'cascade-select-field',
+  params: {
+    field: async () => createFormField({
+      name: 'CascadeSelectField',
+      component: CascadeSelectField,
+    }),
+  },
+});
+
 export const ApiSelectFieldExtension = createFrontendModule({
   pluginId: 'scaffolder',
-  extensions: [ApiSelectFieldBlueprint],
+  extensions: [ApiSelectFieldBlueprint, CascadeSelectFieldBlueprint],
 });

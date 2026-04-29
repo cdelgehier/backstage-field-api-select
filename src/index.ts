@@ -6,3 +6,4 @@ export { ApiSelectFieldExtension } from './extensions';
 
 // Types (useful for writing template validation or custom wrappers)
 export type { ApiSelectFieldOptions } from './schema';
+export type { CascadeSelectFieldOptions, CascadeValue } from './components/CascadeSelectField';
