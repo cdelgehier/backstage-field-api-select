@@ -5,6 +5,10 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],
@@ -18,6 +22,10 @@
     "multiselect",
     "autocomplete"
   ],
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "api-select-field"
+  },
   "publishConfig": {
     "access": "public"
   },
