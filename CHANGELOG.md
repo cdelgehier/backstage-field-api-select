@@ -1,3 +1,9 @@
+## v0.5.1 (2026-05-21)
+
+### Fix
+
+- **ci**: switch npm publish to OIDC Trusted Publisher
+
 ## v0.5.0 (2026-05-21)
 
 ### Feat
