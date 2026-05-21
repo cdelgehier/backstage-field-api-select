@@ -221,10 +221,18 @@ export function ApiSelectField({
     componentsProps: { paper: { sx: { border: '1px solid', borderColor: 'divider' } } },
   };
 
+  // ListboxProps (MUI v5) / slotProps.listbox (MUI v6+) — same cast pattern as paperBorder.
+  // Forces maxHeight + scroll regardless of any parent overflow:hidden from the scaffolder form.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listboxScroll: any = {
+    ListboxProps: { style: { maxHeight: 300, overflowY: 'auto' } },
+  };
+
   return (
     <Autocomplete
       disablePortal
       {...paperBorder}
+      {...listboxScroll}
       multiple={opts.multiple}
       options={options.map(o => o.value)}
       getOptionLabel={value => options.find(o => o.value === value)?.label ?? value}
