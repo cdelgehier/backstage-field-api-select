@@ -1,3 +1,9 @@
+## v0.5.3 (2026-05-21)
+
+### Fix
+
+- force maxHeight and scroll on Autocomplete listbox
+
 ## v0.5.2 (2026-05-21)
 
 ### Fix
