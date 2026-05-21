@@ -1,3 +1,9 @@
+## v0.5.2 (2026-05-21)
+
+### Fix
+
+- **ci**: bump GitHub Actions to Node 24-compatible versions
+
 ## v0.5.1 (2026-05-21)
 
 ### Fix
