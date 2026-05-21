@@ -1,3 +1,18 @@
+## v0.5.0 (2026-05-21)
+
+### Feat
+
+- export ApiSelectFieldExtension as default for auto-discovery
+- add backstage role and exports for auto-discovery
+
+### Fix
+
+- restore ignoreDeprecations 6.0 for TypeScript 6 compatibility
+
+### Refactor
+
+- migrate plugin.ts to new frontend-plugin-api
+
 ## v0.4.0 (2026-04-29)
 
 ### Feat
