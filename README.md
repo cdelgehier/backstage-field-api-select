@@ -57,17 +57,30 @@ npm install @cdelgehier/backstage-field-api-select
 
 ## Setup
 
-Register both field extensions in `packages/app/src/App.tsx`:
+This plugin targets the **new Backstage frontend system** (`@backstage/frontend-defaults`).
+
+### Auto-discovery (recommended)
+
+If your app uses `app.packages: all` in `app-config.yaml`, no code changes are needed — the plugin is loaded automatically after installation:
+
+```yaml
+# app-config.yaml
+app:
+  packages: all
+```
+
+### Manual registration
+
+If you manage features explicitly, import the default export and add it to `features`:
 
 ```tsx
-import { ApiSelectFieldExtension } from '@cdelgehier/backstage-field-api-select';
+// packages/app/src/App.tsx
+import { createApp } from '@backstage/frontend-defaults';
+import ApiSelectFieldExtension from '@cdelgehier/backstage-field-api-select';
 
-// Inside your FlatRoutes:
-<Route path="/create" element={<ScaffolderPage />}>
-  <ScaffolderFieldExtensions>
-    <ApiSelectFieldExtension />
-  </ScaffolderFieldExtensions>
-</Route>
+export default createApp({
+  features: [ApiSelectFieldExtension],
+});
 ```
 
 `ApiSelectFieldExtension` registers both `ApiSelectField` and `CascadeSelectField` — a single import covers both.
